@@ -4,7 +4,7 @@ library(tidyr)
 library(ggplot2)
 
 #import data from the csv file
-loan_ds <- read.csv("loan.csv", stringsAsFactors = F)
+loan_ds <- read.csv("./Data/loan.csv", stringsAsFactors = F)
 #structure of the data frame..
 str(loan_ds)
 #View the data frame
@@ -58,46 +58,68 @@ sum(is.na(loan_ds$loan_amnt))
 sum(loan_ds$loan_amnt==0) #logically this should never be 0 but just to check if data is all fine
 #this will give the number of unique loan amounts requested from bank.
 length(unique(loan_ds$loan_amnt))
-#minimum amount asked
-min(loan_ds$loan_amnt) #500
-#minimum amount asked
-max(loan_ds$loan_amnt) #35000
+summary(loan_ds$loan_amnt)
+#Histogram plot for Loan Amount Requested
+ggplot(loan_ds, aes(loan_ds$loan_amnt, col="red")) + geom_histogram(binwidth = 1000) +
+  labs(x="Loan Amount Requested", y="Frequency", title="Loan Amount Requested Frequency", col="Bin 0f 1000")
+#from this it is clear that we have maximum loan application for amount 10000
+#and the range is from 5500 - 15000 where most values lie
 
 
 sum(is.na(loan_ds$funded_amnt))
 sum(loan_ds$funded_amnt==0) #logically this could be 0 but those will go under rejected cases.
 #this will give the number of unique loan amounts commited by bank.
 length(unique(loan_ds$funded_amnt))
-#minimum amount commited
-min(loan_ds$funded_amnt) #500
-#minimum amount commited
-max(loan_ds$funded_amnt) #35000
+summary(loan_ds$funded_amnt)
+#Histogram plot for Loan Amount Funded
+ggplot(loan_ds, aes(loan_ds$funded_amnt, col="red")) + geom_histogram(binwidth = 1000) +
+  labs(x="Loan Amount Funded", y="Frequency", title="Loan Amount Funded Frequency", col="Bin 0f 1000")
+#from this it is clear that we have maximum loan application for amount 9600
+#and the range is from 5400 - 15000 where most values lie
+#this follows the same structure as the loan requested plot
+
 
 #find difference in loan asked and commited for each request
 diff_loan_amt_req_funded <- loan_ds$loan_amnt - loan_ds$funded_amnt
 #In total there are 1849 cases where the loan amount committed is not as requested amount
 sum(diff_loan_amt_req_funded!=0)
 loan_ds <- cbind(loan_ds, diff_loan_amt_req_funded) #additional param added
+summary(loan_ds$diff_loan_amt_req_funded)
+#This shows there are few outliers and hence those needs to examined
+#why they are not funded
+ggplot(loan_ds, aes(diff_loan_amt_req_funded)) + geom_histogram(binwidth = 1000)
+#This shows there is almost no difference in request amount and funded amount
+
 
 sum(is.na(loan_ds$funded_amnt_inv))
 sum(loan_ds$funded_amnt_inv==0) # number of cases where the invertors have not invested 
-#minimum amount funded
-min(loan_ds$funded_amnt_inv) #0
-#minimum amount funded
-max(loan_ds$funded_amnt_inv) #35000
+summary(loan_ds$funded_amnt_inv)
+#Histogram plot for Loan Amount Funded
+ggplot(loan_ds, aes(loan_ds$funded_amnt, col="red")) + geom_histogram(binwidth = 1000) +
+  labs(x="Loan Amount Funded", y="Frequency", title="Loan Amount Funded Frequency", col="Bin 0f 1000")
+#from this it is clear that we have maximum loan application for amount 8975
+#and the range is from 5400 - 14400 where most values lie
+#this follows the same structure as the loan requested plot
+
 
 #find difference in loan commited and invested for each request
 diff_loan_amt_funded_inv <- loan_ds$funded_amnt - loan_ds$funded_amnt_inv
 #In total there are 1849 cases where the loan amount invested is not as committed
 sum(diff_loan_amt_funded_inv!=0)
 loan_ds <- cbind(loan_ds, diff_loan_amt_funded_inv)
-
+summary(loan_ds$diff_loan_amt_funded_inv)
+#a plot is not required here but quite clearly again some outliers are observer
 
 #unique terms for loan
 unique(loan_ds$term)
 #bringing the duration to numbers
 loan_ds$term <- as.integer(gsub("months", "", loan_ds$term))
 loan_ds$term <- as.factor(loan_ds$term)
+summary(loan_ds$term)
+#histogram for terms for which the loan has been taken
+ggplot(loan_ds, aes(loan_ds$term, fill=loan_ds$term)) + geom_bar(stat = "count")
+#the most number of loan request are for 36 months term.. that is almost 3 times the 60 month term
+
 
 
 #check the interest rate column
@@ -109,12 +131,22 @@ loan_ds$int_rate <- as.numeric(gsub("%", "", loan_ds$int_rate))
 length(unique(loan_ds$int_rate))
 sum(is.na(loan_ds$int_rate))
 sum(loan_ds$int_rate==0)
+summary(loan_ds$int_rate)
+ggplot(loan_ds, aes(loan_ds$int_rate, col="red")) + geom_histogram(binwidth = 1)
+#we can safely assume the maximum interest rate applied is 12%
+ggplot(loan_ds, aes(loan_ds$int_rate, fill=loan_ds$term)) + geom_histogram(binwidth = 1, position = "dodge")
+ggplot(loan_ds, aes(loan_ds$int_rate, fill=loan_ds$term)) + geom_histogram(binwidth = 1, position = "fill")
+ggplot(loan_ds, aes(loan_ds$term, loan_ds$int_rate)) + geom_boxplot()
+#clearly whe can see as the interest rate increases the number of loans with 60 months term of loan has increased
+#so we can say the lower terms incur higher interest rates while higher loan terms are given low inetrest rate
 
 
 #sanity check for installment
 sum(is.na(loan_ds$installment))
 sum(loan_ds$installment==0)
 length(unique(loan_ds$installment))
+summary(loan_ds$installment)
+
 
 
 #sanity check for grade
