@@ -58,25 +58,14 @@ sum(is.na(loan_ds$loan_amnt))
 sum(loan_ds$loan_amnt==0) #logically this should never be 0 but just to check if data is all fine
 #this will give the number of unique loan amounts requested from bank.
 length(unique(loan_ds$loan_amnt))
-summary(loan_ds$loan_amnt)
-#Histogram plot for Loan Amount Requested
-ggplot(loan_ds, aes(loan_ds$loan_amnt, col="red")) + geom_histogram(binwidth = 1000) +
-  labs(x="Loan Amount Requested", y="Frequency", title="Loan Amount Requested Frequency", col="Bin 0f 1000")
-#from this it is clear that we have maximum loan application for amount 10000
-#and the range is from 5500 - 15000 where most values lie
+
 
 
 sum(is.na(loan_ds$funded_amnt))
 sum(loan_ds$funded_amnt==0) #logically this could be 0 but those will go under rejected cases.
 #this will give the number of unique loan amounts commited by bank.
 length(unique(loan_ds$funded_amnt))
-summary(loan_ds$funded_amnt)
-#Histogram plot for Loan Amount Funded
-ggplot(loan_ds, aes(loan_ds$funded_amnt, col="red")) + geom_histogram(binwidth = 1000) +
-  labs(x="Loan Amount Funded", y="Frequency", title="Loan Amount Funded Frequency", col="Bin 0f 1000")
-#from this it is clear that we have maximum loan application for amount 9600
-#and the range is from 5400 - 15000 where most values lie
-#this follows the same structure as the loan requested plot
+
 
 
 #find difference in loan asked and commited for each request
@@ -84,49 +73,26 @@ diff_loan_amt_req_funded <- loan_ds$loan_amnt - loan_ds$funded_amnt
 #In total there are 1849 cases where the loan amount committed is not as requested amount
 sum(diff_loan_amt_req_funded!=0)
 loan_ds <- cbind(loan_ds, diff_loan_amt_req_funded) #additional param added
-summary(loan_ds$diff_loan_amt_req_funded)
-#This shows there are few outliers and hence those needs to examined
-#why they are not funded
-ggplot(loan_ds, aes(diff_loan_amt_req_funded)) + geom_histogram(binwidth = 1000)
-#This shows there is almost no difference in request amount and funded amount
+
 
 
 sum(is.na(loan_ds$funded_amnt_inv))
 sum(loan_ds$funded_amnt_inv==0) # number of cases where the invertors have not invested 
-summary(loan_ds$funded_amnt_inv)
-#Histogram plot for Loan Amount Funded
-ggplot(loan_ds, aes(loan_ds$funded_amnt, col="red")) + geom_histogram(binwidth = 1000) +
-  labs(x="Loan Amount Funded", y="Frequency", title="Loan Amount Funded Frequency", col="Bin 0f 1000")
-#from this it is clear that we have maximum loan application for amount 8975
-#and the range is from 5400 - 14400 where most values lie
-#this follows the same structure as the loan requested plot
+remove_fields <- append(remove_fields, "funded_amnt_inv")
 
-
-#find difference in loan commited and invested for each request
-diff_loan_amt_funded_inv <- loan_ds$funded_amnt - loan_ds$funded_amnt_inv
-#In total there are 1849 cases where the loan amount invested is not as committed
-sum(diff_loan_amt_funded_inv!=0)
-loan_ds <- cbind(loan_ds, diff_loan_amt_funded_inv)
-summary(loan_ds$diff_loan_amt_funded_inv)
-#a plot is not required here but quite clearly again some outliers are observer
 
 
 #unique terms for loan
 unique(loan_ds$term)
 loan_ds$term <- gsub(" ", "", loan_ds$term)
 #bringing the duration to numbers
-#loan_ds$term <- as.factor(as.character(loan_ds$term))
-summary(loan_ds$term)
-#histogram for terms for which the loan has been taken
-ggplot(loan_ds, aes(loan_ds$term, fill=loan_ds$term)) + geom_bar(stat = "count")
-#the most number of loan request are for 36 months term.. that is almost 3 times the 60 month term
-loan_36 <- loan_ds[loan_ds$term=="36months",]
-loan_60 <- loan_ds[loan_ds$term=="60months",]
+loan_ds$term <- as.factor(as.character(loan_ds$term))
 
 
 
-#check the interest rate column
+#check the interest rate column for NA
 sum(is.na(loan_ds$int_rate))
+#check the interest rate column for empty values
 sum(loan_ds$int_rate %in% c("", " "))
 #convert string to number
 loan_ds$int_rate <- as.numeric(gsub("%", "", loan_ds$int_rate))
@@ -134,46 +100,14 @@ loan_ds$int_rate <- as.numeric(gsub("%", "", loan_ds$int_rate))
 length(unique(loan_ds$int_rate))
 sum(is.na(loan_ds$int_rate))
 sum(loan_ds$int_rate==0)
-summary(loan_ds$int_rate)
-ggplot(loan_ds, aes(loan_ds$int_rate, col="red")) + geom_histogram(binwidth = 1)
-#we can safely assume the maximum interest rate applied is 12%
-ggplot(loan_ds, aes(loan_ds$int_rate, fill=as.factor(loan_ds$term))) + geom_histogram(binwidth = 1, position = "dodge")
-#at higher interest rate very few low termed loans are present
-ggplot(loan_ds, aes(loan_ds$int_rate, fill=as.factor(loan_ds$term))) + geom_histogram(binwidth = 1, position = "fill")
-#when the interest rate is going up comparatively the longer term loans are given with higher rate
-ggplot(loan_ds, aes(as.factor(loan_ds$term), loan_ds$int_rate)) + geom_boxplot() +
-  labs(x="LOan Term", y="Interest Rates", title="Box Plot for different terms")
-#clearly we can see for higher term the median interest rate is high
-#so we can say the lower terms incur higher interest rates while higher loan terms are given low inetrest rate
 
-ggplot(loan_ds, aes(loan_ds$funded_amnt, loan_ds$int_rate)) + geom_point() + facet_wrap(~loan_ds$term)
-#this plot shows there are no loans which are greater than 25k and having term 60 months
-#There are loans which are around 35k and those are of 36 months term
 
 
 #sanity check for installment
 sum(is.na(loan_ds$installment))
 sum(loan_ds$installment==0)
 length(unique(loan_ds$installment))
-summary(loan_ds$installment)
-ggplot(loan_ds, aes(loan_ds$installment, col="red")) + geom_histogram(binwidth = 10) +
-  scale_x_discrete(name = "Intallments", limits=seq(0,1300,100)) 
-#clearly most of the installments are between 167 and 430
-ggplot(loan_36, aes(loan_36$funded_amnt, loan_36$installment)) + geom_point(aes(col=loan_36$term)) 
-ggplot(loan_60, aes(loan_60$funded_amnt, loan_60$installment)) + geom_point(aes(col=loan_60$term))
 
-dev.off()
-ggplot(loan_ds, aes(loan_ds$funded_amnt, loan_ds$installment)) + geom_point(aes(col=loan_ds$term)) + 
-  facet_wrap(~ loan_ds$term)
-
-
-  scale_y_discrete(name = "Interest Rate", limits = seq(0,2000,100)) +
-  scale_x_discrete(name = "Funded Amount", limits = seq(0,35000,5000)) + labs(col="Terms in Months")
-#From this graph we can identify two isntallments for 60 months term is lesser compared to 36 months which is obvious.
-
-#ggplot(loan_ds, aes(loan_ds$funded_amnt_inv, loan_ds$installment)) + geom_point(aes(col=loan_ds$term)) +
-#  scale_y_discrete(name = "Interest Rate", limits = seq(0,2000,100)) +
-#  scale_x_discrete(name = "Investor Funded Amount", limits = seq(0,35000,5000))
 
 
 #sanity check for grade
@@ -183,50 +117,7 @@ sum(loan_ds$grade %in% c("", " "))
 unique(loan_ds$grade)
 #convert it to factor as this is an ordered category
 loan_ds$grade <- as.factor(loan_ds$grade)
-summary(loan_ds$grade)
-#plot for grades
-value <- summary(loan_ds$grade)
-ggplot(loan_ds, aes(loan_ds$grade,fill=loan_ds$grade)) + geom_bar() +
-  labs(x="Grade", y="Frequency", col="Grades", title="Grade Frequency for loans")
 
-  #geom_text(aes(label=y), position=position_dodge(width=0.9), vjust=-0.25)---- Want to add the values for each bar
-#From graph it can be seen that most of the loans are graded B
-#and as the grade increases the number of loans also decreases
-
-#heading here??????
-ggplot(loan_ds, aes(loan_ds$grade,loan_ds$funded_amnt, col=loan_ds$grade)) + geom_point(position=position_jitter(width = 0.25))
-
-#heading here??????
-ggplot(loan_ds, aes(loan_ds$grade,loan_ds$funded_amnt, fill=loan_ds$grade)) + geom_boxplot() +
-  labs(x="Grade", y="Funded Amount", fill="Grades", title="Grade Frequency for loans") +
-  stat_summary(fun.y=mean, colour="darkred", geom="point", shape=18, size=3,show.legend = T)
-#From the graph we can see the funding amount median is going up as the grade increases
-#So the grades indicates the category of amount which is being funded.
-#Need to add value for mean and median on the graph
-
-#heading here??????
-ggplot(loan_ds, aes(loan_ds$grade,loan_ds$funded_amnt, fill=loan_ds$grade)) + geom_boxplot() +
-  labs(x="Grade", y="Funded Amount", fill="Grades", title="Grade Frequency for loans") + facet_wrap(~ loan_ds$term) +
-  stat_summary(fun.y=mean, colour="darkred", geom="point", shape=18, size=3,show.legend = T)
-#Need to add value for mean and median on the graph
-  
-
-#heading here??????
-ggplot(loan_ds, aes(loan_ds$grade,loan_ds$int_rate, fill=loan_ds$grade)) + geom_boxplot() +
-  labs(x="Grade", y="Funded Amount", fill="Grades", title="Grade Frequency for loans") + facet_wrap(~ loan_ds$term) +
-  stat_summary(fun.y=mean, colour="darkred", geom="point", shape=18, size=3,show.legend = T)
-#also as the grades are increasing the interest rate is incresing 
-#implying for more funded amount the interest rate is higher
-#Need to add value for mean and median on the graph
-
-
-#heading here??????
-ggplot(loan_ds, aes(loan_ds$grade,loan_ds$installment, fill=loan_ds$grade)) + geom_boxplot() +
-  labs(x="Grade", y="Funded Amount", fill="Grades", title="Grade Frequency for loans") + facet_wrap(~ loan_ds$term) +
-  stat_summary(fun.y=mean, colour="darkred", geom="point", shape=18, size=3,show.legend = T)
-#from the above plots we can conclude that the grades are nothing but 
-#order of interest rate
-#Need to add value for mean and median on the graph
 
 
 #sanity check for grade
@@ -236,29 +127,6 @@ sum(loan_ds$sub_grade %in% c("", " "))
 unique(loan_ds$sub_grade)
 #convert it to factor as this is an ordered category
 loan_ds$sub_grade <- as.factor(loan_ds$sub_grade)
-summary(loan_ds$sub_grade)
-ggplot(loan_ds, aes(loan_ds$sub_grade, fill=loan_ds$term)) + geom_bar()
-
-loan_ds$term <- as.numeric(loan_ds$term)
-unique(loan_ds$term)
-
-ggplot(loan_ds, aes(loan_ds$sub_grade, loan_ds$int_rate, fill=loan_ds$sub_grade)) + geom_boxplot() + facet_wrap(~ loan_ds$term) #-- clear relation
-ggplot(loan_36, aes(loan_36$sub_grade, loan_36$int_rate, fill=loan_36$sub_grade)) + geom_boxplot()
-ggplot(loan_ds, aes(loan_ds$sub_grade, loan_ds$int_rate, fill=loan_ds$sub_grade)) + geom_boxplot() + facet_wrap(~loan_ds$term) #-- clear relation
-
-
-ggplot(loan_ds, aes(loan_ds$sub_grade, loan_ds$installment, fill=loan_ds$sub_grade)) + geom_boxplot()
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -279,14 +147,30 @@ remove_fields <- append(remove_fields, "emp_title")
 #find Unique entries for employement duration
 unique(loan_ds$emp_length)
 #from above statement it is clear that n/a should be removed.
-
+#count number of n/a
+length(loan_ds$emp_length[loan_ds$emp_length == "n/a"])
+#Remove years from emp_length
+loan_ds$emp_length <- gsub(" years| year", "", loan_ds$emp_length)
+#Replace all n/a with NA
+#sapply(loan_ds$emp_length, function(x){
+#  if (x=="n/a") {NA} 
+#  else if (x=="< 1") {0} 
+#  else if (x=="10+"){10} 
+#  else {as.numeric(x)}})
+#Replace all n/a with NA
 loan_ds$emp_length[loan_ds$emp_length == "n/a"] <- NA #--- could be from individual person not working in company
-loan_ds$emp_length[loan_ds$emp_length == "< 1 year"] <- "0"
-loan_ds$emp_length[loan_ds$emp_length == "10+ years"] <- "10"
-loan_ds$emp_length <- as.numeric(gsub(" years|year", "", loan_ds$emp_length))
+#considering all the values mentioned as < 1 as 0
+loan_ds$emp_length[loan_ds$emp_length == "< 1"] <- "0"
+#considering all the values mentioned as 10+ as 10
+loan_ds$emp_length[loan_ds$emp_length == "10+"] <- "10"
+#check how many na values are there it should be same as n/a values
 sum(is.na(loan_ds$emp_length))
-unique(loan_ds$emp_length)
+#convert the values from string to numeric
+loan_ds$emp_length <- as.numeric(loan_ds$emp_length)
+#convert to factors
 loan_ds$emp_length <- as.factor(loan_ds$emp_length)
+
+
 
 #unique type of home ownerships
 unique(loan_ds$home_ownership)
@@ -297,10 +181,7 @@ loan_ds$home_ownership <- as.factor(loan_ds$home_ownership)
 sum(is.na(loan_ds$annual_inc))
 sum(loan_ds$annual_inc==0)           
 
-#max of annual income
-max(loan_ds$annual_inc)
-#min of annual income
-min(loan_ds$annual_inc)
+summary(loan_ds)
 
 
 #Sanity check for verification status
