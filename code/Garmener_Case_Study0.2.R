@@ -1,6 +1,7 @@
 #import some important libraries to use on data
 library(dplyr)
 library(tidyr)
+library(scales)
 library(ggplot2)
 
 #import data from the csv file
@@ -58,6 +59,8 @@ sum(is.na(loan_ds$loan_amnt))
 sum(loan_ds$loan_amnt==0) #logically this should never be 0 but just to check if data is all fine
 #this will give the number of unique loan amounts requested from bank.
 length(unique(loan_ds$loan_amnt))
+#we need to see if the amount funded is defaulted or not hence removing this
+remove_fields <- append(remove_fields, "loan_amnt")
 
 
 
@@ -67,17 +70,7 @@ sum(loan_ds$funded_amnt==0) #logically this could be 0 but those will go under r
 length(unique(loan_ds$funded_amnt))
 
 
-
-#find difference in loan asked and commited for each request
-diff_loan_amt_req_funded <- loan_ds$loan_amnt - loan_ds$funded_amnt
-#In total there are 1849 cases where the loan amount committed is not as requested amount
-sum(diff_loan_amt_req_funded!=0)
-loan_ds <- cbind(loan_ds, diff_loan_amt_req_funded) #additional param added
-
-
-
-sum(is.na(loan_ds$funded_amnt_inv))
-sum(loan_ds$funded_amnt_inv==0) # number of cases where the invertors have not invested 
+# This is getting considered with funded amount
 remove_fields <- append(remove_fields, "funded_amnt_inv")
 
 
@@ -97,16 +90,12 @@ sum(loan_ds$int_rate %in% c("", " "))
 #convert string to number
 loan_ds$int_rate <- as.numeric(gsub("%", "", loan_ds$int_rate))
 #check if convertion went fine for all
-length(unique(loan_ds$int_rate))
 sum(is.na(loan_ds$int_rate))
-sum(loan_ds$int_rate==0)
 
 
 
-#sanity check for installment
-sum(is.na(loan_ds$installment))
-sum(loan_ds$installment==0)
-length(unique(loan_ds$installment))
+#This is directly proportional to interest rate and principal hence not considering
+remove_fields <- append(remove_fields, "installment")
 
 
 
@@ -127,6 +116,7 @@ sum(loan_ds$sub_grade %in% c("", " "))
 unique(loan_ds$sub_grade)
 #convert it to factor as this is an ordered category
 loan_ds$sub_grade <- as.factor(loan_ds$sub_grade)
+
 
 
 
@@ -180,8 +170,7 @@ loan_ds$home_ownership <- as.factor(loan_ds$home_ownership)
 #sanity check for annual income
 sum(is.na(loan_ds$annual_inc))
 sum(loan_ds$annual_inc==0)           
-
-summary(loan_ds)
+loan_ds$annual_inc[loan_ds$annual_inc %in% boxplot.stats(loan_ds$annual_inc)$out] <- NA
 
 
 #Sanity check for verification status
@@ -191,41 +180,59 @@ sum(loan_ds$verification_status %in% c("", " "))
 unique(loan_ds$verification_status)
 loan_ds$verification_status <- as.factor(loan_ds$verification_status)
 
+loan_ds %>% group_by(verification_status) %>% summarise(mean=mean(funded_amnt), median=median(funded_amnt), st_dev=sd(funded_amnt))
+
+
+
 #Sanity check for issue date
 sum(is.na(loan_ds$issue_d))
 sum(loan_ds$issue_d %in% c("", " "))
-unique(loan_ds$issue_d)
 #separate the year and month
-loan_ds <- separate(loan_ds,issue_d, into=c("issued_month","issued_year"), sep="-")
-#factoring the month with order to months
-loan_ds$issued_month <- factor(loan_ds$issued_month, levels=c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"), ordered=T)
-#factor years
-loan_ds$issued_year <- as.factor(as.numeric(paste("20",sep="",loan_ds$issued_year)))
+loan_ds$issue_d <- as.Date(paste("01-", loan_ds$issue_d, sep=""), format="%d-%b-%y")
+#get Month from date
+issue_month <- format(loan_ds$issue_d, "%b")
+#get year from date
+issue_year <- as.numeric(format(loan_ds$issue_d,"%Y"))
+#qet quarter from date
+issue_quarter <- quarters(loan_ds$issue_d)
+loan_ds <- cbind(loan_ds, issue_month, issue_quarter, issue_year)
+
+unique(loan_ds$issue_month)
+loan_ds$issue_month <- factor(loan_ds$issue_month, levels=c("Jan", "Feb", "Mar", "Apr", "May", "Jun","Jul", "Aug", "Sep", "Oct","Nov",  "Dec"))
 #convert to date and analyse when the loans are getting release most
+
+
+
 
 
 #Sanity check for loan status
 sum(is.na(loan_ds$loan_status))
 sum(loan_ds$loan_status %in% c("", " "))
 unique(loan_ds$loan_status)
+#convert to factor
 loan_ds$loan_status <- as.factor(loan_ds$loan_status)
+
+
 
 
 # dont have any use as this is as unique as id and doesn't make sense in analysis ----- this is for url
 remove_fields <- append(remove_fields, "url")
+
+
 
 # description doesn't make much sense here again.. this is personalised message from applicant.
 # it can be used by minning this to understand the underling sentiment/cause of request. But we are not executing it here  ------- Lets discuss this
 remove_fields <- append(remove_fields, "desc")    
 
 
-#Sanity check for Purpose  --------------------------this is for Purpose
+
+#Sanity check for Purpose
 sum(is.na(loan_ds$purpose))
 sum(loan_ds$purpose %in% c("", " "))
 unique(loan_ds$purpose)
 loan_ds$purpose <- as.factor(loan_ds$purpose)
 
-#Sanity check for loan title ------------------------------- this is title
+#Sanity check for loan title
 sum(is.na(loan_ds$title))
 sum(loan_ds$title %in% c("", " "))
 length(unique(loan_ds$title)) # may not be of much use.. Individual way of naming the loan
@@ -246,6 +253,7 @@ remove_fields <- append(remove_fields, "zip_code")
 sum(is.na(loan_ds$addr_state))
 sum(loan_ds$addr_state %in% c("", " "))
 length(unique(loan_ds$addr_state))
+#convert to factor
 loan_ds$addr_state <- as.factor(loan_ds$addr_state)
 
 
@@ -254,49 +262,52 @@ loan_ds$addr_state <- as.factor(loan_ds$addr_state)
 # less mean less chances of defaulting
 sum(is.na(loan_ds$dti))
 sum(loan_ds$dti==0)
-min(loan_ds$dti)
-max(loan_ds$dti)
-
 
 #no. of unique delequency events  for past 2 years of loan account
 #the high the bad
 unique(loan_ds$delinq_2yrs)
+sum(loan_ds$delinq_2yrs==0)
+#convert to factor
 loan_ds$delinq_2yrs <- as.factor(loan_ds$delinq_2yrs)
 
 
-#this is the date on which first account opened for the user
-loan_ds <- separate(loan_ds,earliest_cr_line, into=c("first_acc_open_month","first_acc_open_year"), sep="-")
-#factoring the month with order to months
-loan_ds$first_acc_open_month <- factor(loan_ds$first_acc_open_month, levels=c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"), ordered=T)
 
-#Function to conver yy year format to YYYY format and numeric
-#To date convertion required...??????????
+##this is the date on which first account opened for the user
+#Sanity check for issue date
+sum(is.na(loan_ds$earliest_cr_line))
+sum(loan_ds$earliest_cr_line %in% c("", " "))
+unique(loan_ds$earliest_cr_line)
+#separate the year and month
+loan_ds$earliest_cr_line <- as.Date(paste("01-", loan_ds$earliest_cr_line, sep=""), format="%d-%b-%y")
+#get Month from date
+earliest_cr_line_month <- format(loan_ds$earliest_cr_line, "%b")
+#get year from date
+earliest_cr_line_year <- as.numeric(format(loan_ds$earliest_cr_line,"%Y"))
+#qet quarter from date
+earliest_cr_line_quarter <- quarters(loan_ds$earliest_cr_line)
+loan_ds <- cbind(loan_ds, earliest_cr_line_month, earliest_cr_line_quarter, earliest_cr_line_year)
+#convert to date and analyse when the loans are getting release most
 #if time permits will include in study
-openedyear <- function(year) {
-  if(as.numeric(year) < 17)
-  {
-    return(as.numeric(paste("20",year,sep = "")))
-  }
-  else
-  {
-    return(as.numeric(paste("19",year,sep="")))
-  }
-}
 
-loan_ds$first_acc_open_year <- sapply(loan_ds$first_acc_open_year, FUN=function(x) openedyear(x))
-#factor years
-loan_ds$first_acc_open_year <- as.factor(loan_ds$first_acc_open_year)
+loan_ds$earliest_cr_line_month <- as.factor(loan_ds$earliest_cr_line_month)
+loan_ds$earliest_cr_line_quarter <- as.factor(loan_ds$earliest_cr_line_quarter)
+loan_ds$earliest_cr_line_year <- as.factor(loan_ds$earliest_cr_line_year)
 
 
+
+#sanity check
 unique(loan_ds$inq_last_6mths)
+#All are valid values, no NA or blank value reported 
+#Converting to factor
 loan_ds$inq_last_6mths <- as.factor(loan_ds$inq_last_6mths)
 #More the no of inquiry more Credit Hungry which reduces the Credit rating of the Borrower.
 
 
 
-
-sum(is.na(loan_ds$mths_since_last_delinq)) 
+#sanity check
 unique(loan_ds$mths_since_last_delinq) # this is the factor which has high gravity in deciding the defaulters
+sum(is.na(loan_ds$mths_since_last_delinq)) 
+#convert to factors
 loan_ds$mths_since_last_delinq <- as.factor(loan_ds$mths_since_last_delinq)
 # If there is no information on delinquency we assume the borrower is
 #paying the installments properly or the loan has been paid completely.
@@ -305,32 +316,38 @@ loan_ds$mths_since_last_delinq <- as.factor(loan_ds$mths_since_last_delinq)
 
 
 
-
+#sanity check
 sum(is.na(loan_ds$mths_since_last_record))
 unique(loan_ds$mths_since_last_record)
 loan_ds$mths_since_last_record <- as.factor(loan_ds$mths_since_last_record)
 #mostly the values are NA almost no use of column
+remove_fields <- append(remove_fields, "mths_since_last_record")
 
 
 
 #total number of OPEN accounts (operational)
-sum(is.na(loan_ds$open_acc))
-sum(loan_ds$open_acc==0)
 unique(loan_ds$open_acc)
+#convert to factors
+loan_ds$open_acc <- as.factor(loan_ds$open_acc)
 
-sum(is.na(loan_ds$pub_rec))
-sum(loan_ds$pub_rec!=0)
-unique(loan_ds$pub_rec) #useful column in identifying risky borrowers
+
+
+#sanity check
+unique(loan_ds$pub_rec)
+sum(loan_ds$pub_rec==0)
+#most of the entries are 0
+#convert to factor
 loan_ds$pub_rec <- as.factor(loan_ds$pub_rec)
+
 
 
 #this is if low then the borrower is less risky
 #installment - payment for particular month
 #more mining bad
 sum(is.na(loan_ds$revol_bal))
-max(loan_ds$revol_bal)
-min(loan_ds$revol_bal)
 sum(loan_ds$revol_bal==0)
+
+
 
 #here the if the credit used is less then the chances of making payment is more
 #but there is not too much profit to bank.
@@ -343,8 +360,10 @@ sum(loan_ds$revol_util=="0")
 loan_ds$revol_util <- as.numeric(gsub("%","",loan_ds$revol_util))
 sum(is.na(loan_ds$revol_util))
 
+
+
 #total number of accounts associated with the memeber. (open+closed)
-#the high the closed the better????????? ------------Need discussion
+#the high the closed the better
 sum(is.na(loan_ds$total_acc))
 sum(loan_ds$total_acc==0) #should not be 0 and that is the case
 unique(loan_ds$total_acc)
@@ -354,7 +373,8 @@ remove_fields <- append(remove_fields, "total_acc")
 #the less the better
 sum(is.na(loan_ds$out_prncp))
 sum(loan_ds$out_prncp==0)
-max(loan_ds$out_prncp)
+
+
 
 #The less the better
 #This has almost no use as this portion is already covered in out_prncp
@@ -362,6 +382,7 @@ max(loan_ds$out_prncp)
 sum(loan_ds$out_prncp_inv==0)
 max(loan_ds$out_prncp_inv)
 remove_fields <- append(remove_fields, "out_prncp_inv")
+
 
 
 #payments received to date for total funded amount
@@ -383,12 +404,9 @@ unique(loan_ds$next_pymnt_d[(loan_ds$next_pymnt_d!="")])
 remove_fields <- append(remove_fields, "next_pymnt_d")
 #might not be useful as there are only two unique dates for the column and many are empty
 
-loan_ds$last_pymnt_d #this along with credit pull will give the number of months of deliquency.. which should be same with 
-#mths_since_last_delinq -------Discussion
+loan_ds$last_pymnt_d
+#mths_since_last_delinq
 
-
-#----------------------------------------------------------------------------------------
-#Pritam's Code
 
 
 # 10 -- Summary for pub_rec_bankruptcies (Number of public record bankruptcies)
@@ -430,8 +448,6 @@ remove_fields <- append(remove_fields, "next_pymnt_d")
 str(loan_ds$last_pymnt_amnt)
 sum(is.na(loan_ds$last_pymnt_amnt))
 sum(loan_ds$last_pymnt_amnt %in% c("", " "))
-max(loan_ds$last_pymnt_amnt)
-min(loan_ds$last_pymnt_amnt)
 sum(loan_ds$last_pymnt_amnt==0) #74
 
 # this field can be used to calculate profit Loss. But not sure if can be used to for default
@@ -452,8 +468,6 @@ str(loan_ds$last_pymnt_d)
 str(loan_ds$collection_recovery_fee)
 sum(is.na(loan_ds$collection_recovery_fee))
 sum(loan_ds$collection_recovery_fee %in% c("", " "))
-max(loan_ds$collection_recovery_fee)
-min(loan_ds$collection_recovery_fee)
 sum(loan_ds$collection_recovery_fee==0)#35935
 sum(loan_ds$collection_recovery_fee!=0)#3782
           # From Business point of view this comes after the user starts defaulting/becomes delinquent, 
@@ -463,8 +477,6 @@ sum(loan_ds$collection_recovery_fee!=0)#3782
 str(loan_ds$recoveries)
 sum(is.na(loan_ds$recoveries))
 sum(loan_ds$recoveries %in% c("", " "))
-max(loan_ds$recoveries)
-min(loan_ds$recoveries)
 sum(loan_ds$recoveries==0)#35499
 sum(loan_ds$recoveries!=0)#4218
          # This also has higher no. of values with zero also this is after default. Hence can be igoned.
@@ -475,8 +487,6 @@ sum(loan_ds$recoveries!=0)#4218
 str(loan_ds$total_rec_late_fee)
 sum(is.na(loan_ds$total_rec_late_fee))
 sum(loan_ds$total_rec_late_fee %in% c("", " "))
-max(loan_ds$total_rec_late_fee)
-min(loan_ds$total_rec_late_fee)
 sum(loan_ds$total_rec_late_fee==0)#37671
 sum(loan_ds$total_rec_late_fee!=0)#2046
        # This can be analysed as people with zero late fee tend not to deffault and repay in time.
@@ -486,8 +496,6 @@ sum(loan_ds$total_rec_late_fee!=0)#2046
 str(loan_ds$total_rec_int)
 sum(is.na(loan_ds$total_rec_int))
 sum(loan_ds$total_rec_int %in% c("", " "))
-max(loan_ds$total_rec_int)
-min(loan_ds$total_rec_int)
 sum(loan_ds$total_rec_int==0)#71
 sum(loan_ds$total_rec_int!=0)#39646
        # This can be analysed as people with High interest may tend to deffault.
@@ -497,8 +505,6 @@ sum(loan_ds$total_rec_int!=0)#39646
 str(loan_ds$total_rec_prncp)
 sum(is.na(loan_ds$total_rec_prncp))
 sum(loan_ds$total_rec_prncp %in% c("", " "))
-max(loan_ds$total_rec_prncp)
-min(loan_ds$total_rec_prncp)
 sum(loan_ds$total_rec_prncp==0)#74
 sum(loan_ds$total_rec_prncp!=0)#39643
       # This comes after Loan is given hence Not sure if we should consider this for analysis
@@ -509,4 +515,6 @@ loan_ds_unwanted_fields <- loan_ds[ , (names(loan_ds) %in% remove_fields)]
 loan_ds_clean <- loan_ds[ , !(names(loan_ds) %in% remove_fields)]
 
 summary(loan_ds_clean)
+
+write.csv(loan_ds_clean, "./Data/cleaned_data.csv")
 
